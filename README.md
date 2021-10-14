@@ -1,6 +1,6 @@
-# RoelekeEtAl  
-Bat mobile sensory network model presented in:  
+# Bat mobile sensory network model 
 
+Presented in:    
 Roeleke, M., Schlägel, U. E., Gallagher, C. A., Pufelski, J., Blohm, T., Nathan, R., Toledo, S., Jeltsch, F., & C. C. Voigt. Insectivorous bats form mobile sensory networks to optimize prey localization. (Submitted.)   
 
 Model Developed by:  
