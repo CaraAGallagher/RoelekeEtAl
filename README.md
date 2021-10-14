@@ -12,5 +12,5 @@ Developed as part of the BioMove project (biomove.org)
 Development started: Feb 16th, 2021  
 The model was developed and tested using NetLogo version 6.0.4. Development ended August 16th, 2021.  
 
-Repo contains NetLogo code and ODD model documentation protocol   
+Repo contains NetLogo code (BatSensoryNetworksModel.nlogo) and ODD model documentation protocol (BatSensoryNetworksODDprotocol.pdf)   
 
