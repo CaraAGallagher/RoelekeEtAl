@@ -1445,6 +1445,7 @@ See full ODD with figures, tables, & equations in the associated text.
 
 ## 1. Purpose and patterns
 Searching for food patches within a sensory network may allow for animals to more efficiently locate patchily distributed and ephemeral resources, however there exists little knowledge on the potential benefits of this strategy and the conditions under which it is advantageous. The purpose of the model is to assess if and under which conditions sensory networking of insectivorous bats can lead to observed differences in the amount of time it takes bats to find food in varying environments. 
+
 When developing the model we used patterns elucidated in the empirical portion of the manuscript (Fig. 4c & d), which document changes in distance to conspecifics associated with varying initial distances for model calibration (see ODD Element 7.8). Three additional movement patterns (time to first forage, distance from roost to forage cell, and straightness index) were used to evaluate the model (ODD Element 7.8).
 
 ## 2. Entities, state variables, and scales    
