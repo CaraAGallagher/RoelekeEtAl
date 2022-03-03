@@ -26,32 +26,34 @@
 extensions [profiler]
 
 globals [
-  foraging-area           ; position of the center of the foraging area
-  turn-ang-alpha-search   ; turning angle gamma distribution alpha parameter for bats which are searching
-  turn-ang-lambda-search  ; turning angle gamma distribution lambda parameter for bats which are searching
-  turn-ang-alpha-hunt     ; turning angle gamma distribution alpha parameter for bats which are hunting
-  turn-ang-lambda-hunt    ; turning angle gamma distribution lambda parameter for bats which are hunting
-  step-len-alpha-search   ; step length gamma distribution alpha parameter for bats which are searching
-  step-len-lambda-search  ; step length gamma distribution lambda parameter for bats which are searching
-  step-len-alpha-hunt     ; step length gamma distribution alpha parameter for bats which are hunting
-  step-len-lambda-hunt    ; step length gamma distribution lambda parameter for bats which are hunting
-  prey-detection-range    ; radius where prey can be detected [m]
+  foraging-area                ; position of the center of the foraging area
+  turn-ang-alpha-search        ; turning angle gamma distribution alpha parameter for bats which are searching
+  turn-ang-lambda-search       ; turning angle gamma distribution lambda parameter for bats which are searching
+  turn-ang-alpha-hunt          ; turning angle gamma distribution alpha parameter for bats which are hunting
+  turn-ang-lambda-hunt         ; turning angle gamma distribution lambda parameter for bats which are hunting
+  step-len-alpha-search        ; step length gamma distribution alpha parameter for bats which are searching
+  step-len-lambda-search       ; step length gamma distribution lambda parameter for bats which are searching
+  step-len-alpha-hunt          ; step length gamma distribution alpha parameter for bats which are hunting
+  step-len-lambda-hunt         ; step length gamma distribution lambda parameter for bats which are hunting
+  prey-detection-range         ; radius where prey can be detected [m]
 
   ; for scenarios
-  run-done                ; boolean which triggers when run is complete
-  most-done               ; boolean which triggers when 95% of bats have found food
-  network-unassigned-bats ; list to count network size which keeps track of unassigned bats
-  networks                ; list of list of all networks
-  food-found-ticks-list   ; keeps track of when bats find food
-  perc-search-w-consp     ; percent of searching bats with a conspecific (collected once every 8 ticks)
-  perc-cells-found        ; percent of cells occupied by hunting bats (collected once every 8 ticks)
-  time-to-all-food        ; how long it takes for all bats in the colony to find food
-  time-to-95-food         ; how long it takes for 95% of bats to find food
-  avg-netwrk              ; average size of networks [#]
-  average-network-size    ; list of average size of networks [#]
-  track-list              ; list of bats which are being tracked
-  track-outputs           ; position outputs from tracked bats
-  currseed
+  run-done                     ; boolean which triggers when run is complete
+  most-done                    ; boolean which triggers when 95% of bats have found food
+  network-unassigned-bats      ; list to count network size which keeps track of unassigned bats
+  networks                     ; list of list of all networks
+  food-found-ticks-list        ; keeps track of when bats find food
+  perc-search-w-consp          ; percent of searching bats with a conspecific (collected once every 8 ticks)
+  perc-cells-found             ; percent of cells occupied by hunting bats (collected once every 8 ticks)
+  time-to-all-food             ; how long it takes for all bats in the colony to find food
+  time-to-95-food              ; how long it takes for 95% of bats to find food
+  avg-netwrk                   ; average size of networks [#]
+  average-network-size         ; list of average size of networks [#]
+  network-sizes                ; list of network sizes for each non-foraging bat [#]
+  nearest-neighbor-distance    ; list of distances to the nearest neighbor for each bat [m]
+  track-list                   ; list of bats which are being tracked
+  track-outputs                ; position outputs from tracked bats
+  currseed                     ; seed used for simulation run
 ]
 
 breed [ bats bat ]
@@ -104,7 +106,7 @@ to setup
   set-patch-size 6
 
   ; set seed for BS experiments to match maps
-  random-seed floor ((behaviorspace-run-number - 1) / 2)
+  ; random-seed (behaviorspace-run-number - 1)
 
   setup-maps
 
@@ -125,6 +127,8 @@ to setup
   set perc-search-w-consp []
   set perc-cells-found []
   set average-network-size []
+  set network-sizes []
+  set nearest-neighbor-distance []
   if track-bats? = true [
    set track-list []
    set track-outputs []
@@ -211,7 +215,7 @@ to go
 
   ask bats with [food-found = true] [ hunting-fly ]           ; hunting bats fly around in their food cell
 
-  if ( ticks != 0 ) and ( remainder ticks  8 ) = 0 [          ; collect these outputs once per every 8 ticks
+  if ( ticks >= 8 ) and ( remainder ticks  8 ) = 0 [          ; collect these outputs once per every 8 ticks
     if null-model? = false [ calculate-network-size ]         ; network size estimation (and coloration)
     update-monitors                                           ; plot outputs
     collect-outputs                                           ; collect additional outputs
@@ -325,7 +329,12 @@ to check-consp-hunting
     set move-away-ticker move-away-ticker + 1                       ; increase the timer used to keep track of how long to move away from a hunting conspecific
   ]
 
-  if conspecific != nobody and [food-found] of conspecific = true [ ; if conspecific is hunting
+  if conspecific != nobody and [food-found] of conspecific = true [ ; if conspecific is hunting then use local enhancement
+    if local-enhancement? = true
+    [
+      local-enhancement
+    ]
+
     set hunting-consp-ticker hunting-consp-ticker + 1               ; increase the timer used to keep track of how long they've been flying next to the hunting conspecific
     if hunting-consp-ticker >= 8 * 5 [ set move-away-ticker 1 ]     ; when reaching max value, start moving away
   ]
@@ -743,19 +752,8 @@ to food-check
     pu
   ]
 
-  ; if consp-find-food-auto? is on, bats which found food tell bats currently in their network where the food patch they found is
-  if consp-find-food-auto? = true and null-model? = false and food-found-this-tick = true [
-    let pid [patch-id] of patch-here
-    let c-here patch-here
-    ; if there are empty cells in the patch, they target one
-    if any? bats with [ conspecific = myself ] and any? patches with [ patch-id = pid and found = false ] [
-      ask bats with [ conspecific = myself ] [
-        let tP c-here
-        set targ-cell tP
-        set flying-towards-food true
-      ]
-    ]
-  ]
+  ; if local-enhancement? is on, bats which found food tell bats that currently have them as their conspecific where the food patch they found is
+  if local-enhancement? = true and food-found-this-tick = true [ local-enhancement ]
 
   ; if targeting a cell, then arrive to find it occupied, reset flying-toward-food
   if patch-here = targ-cell and [found] of patch-here = true [ set flying-towards-food false ]
@@ -767,6 +765,38 @@ to food-check
   ]
 end
 
+; local enhancement alerts bats to food if they come within 240m of a foraging bat
+to local-enhancement
+ ifelse food-found = false
+  [
+    ; bats which have encountered a hunting bat
+    let me self
+    ask conspecific [
+      let consp-patch patch item 0 food-cell item 1 food-cell
+      let pid [patch-id] of consp-patch
+      ; if there are empty cells in the patch, they target one
+      if any? patches with [ patch-id = pid and found = false ] [
+        ask me [
+          let tP one-of patches with [ patch-id = pid and found = false ]
+          set targ-cell tP
+          set flying-towards-food true
+        ]
+      ]
+    ]
+  ]
+  [
+    ; bats which have found food direct bats which see them as their conspecific to available cells if they exist
+    let pid [patch-id] of patch item 0 food-cell item 1 food-cell
+    ; if there are empty cells in the patch, they target one
+    if any? bats with [ conspecific = myself ] and any? patches with [ patch-id = pid and found = false ] [
+      ask bats with [ conspecific = myself ] [
+        let tP one-of patches with [ patch-id = pid and found = false ]
+        set targ-cell tP
+        set flying-towards-food true
+      ]
+    ]
+  ]
+end
 
 ;;;; outputs and monitors ;;;;
 
@@ -864,36 +894,61 @@ to calculate-network-size
   ]
 
   ; update colors
-  ask bats [ifelse food-found = true [ set color white ] [ set color (min [who] of bats with [network-ID = [network-ID] of myself ] + 10 )]]
+  ask bats [ifelse food-found = true [ set color white ] [ set color (min [who] of bats with [network-ID = [network-ID] of myself] + 10 )]]
 end
 
 
 to collect-outputs
-  ; count how many bats have a conspecific
-  ifelse (count bats with [food-found = false]) > 0 [
-    set perc-search-w-consp lput (precision (count bats with [food-found = false and conspecific != nobody]/(count bats with [food-found = false])) 3) perc-search-w-consp ]
-  [ set perc-search-w-consp lput 1 perc-search-w-consp ]
 
-  ; calculate percentage of cells found by bats
-  set perc-cells-found lput (precision (count bats with [food-found = true] / no-food-cells) 3) perc-cells-found
+  if ( remainder ticks  8 ) = 0 [
+    ; count how many bats have a conspecific
+    ifelse (count bats with [food-found = false]) > 0 [
+      set perc-search-w-consp lput (precision (count bats with [food-found = false and conspecific != nobody]/(count bats with [food-found = false])) 3) perc-search-w-consp ]
+    [ set perc-search-w-consp lput 1 perc-search-w-consp ]
 
-  ; calculate average network size
-  if length networks > 0 [
-    let itm 0
-    let temp-list []
-    while [itm < length networks ] [
-      set temp-list lput (length item itm networks) temp-list
-      set itm itm + 1
+    ; calculate percentage of cells found by bats
+    set perc-cells-found lput (precision (count bats with [food-found = true] / no-food-cells) 3) perc-cells-found
+
+    ; calculate average network size
+    if length networks > 0 [
+      let itm 0
+      let temp-list []
+      while [itm < length networks ] [
+        set temp-list lput (length item itm networks) temp-list
+        set itm itm + 1
+      ]
+      set avg-netwrk ( precision (mean temp-list) 3 )
+      set average-network-size lput avg-netwrk average-network-size
     ]
-    set avg-netwrk ( precision (mean temp-list) 3 )
-    set average-network-size lput avg-netwrk average-network-size
   ]
+
+  ; record network size of tracked bats
+  ask bats with [ food-found = false and leave-roost-tick < ticks and member? who track-list = true ]
+  [
+    let tmp []
+    if null-model? = false [
+      ; record network size of each bat
+      ifelse network-ID = 0
+      [ set tmp (list ticks who 1) ]
+      [ set tmp (list ticks who (count bats with [network-ID = [network-ID] of myself])) ]
+      set network-sizes lput tmp network-sizes
+    ]
+
+    ; record nearest neighbor of tracked bats
+    let nghbr min-one-of other turtles [distance myself]
+    let dst precision ((distance nghbr) * 75) 3
+    set tmp (list ticks who dst)
+    set nearest-neighbor-distance lput tmp nearest-neighbor-distance
+  ]
+
 
   if run-done = true [
     print "Final outputs:"
     set time-to-all-food ticks
     print word "Percent of searching bats with a conspecific per minute:    " perc-search-w-consp
     print word "Percent of cells found by bats per minute:                  " perc-cells-found
+    print word "List of network sizes per bat:                              " network-sizes
+    print word "Distance to nearest neighbor per bat:                       " nearest-neighbor-distance
     print word "Ticks taken for all bats to find food:                      " time-to-all-food
     print word "Ticks taken for 95% of bats to find food:                   " time-to-95-food
     set currseed floor ((behaviorspace-run-number - 1) / 2)
@@ -944,7 +999,6 @@ to movement-outputs
       ]
     ]
   ]
-
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -1097,7 +1151,7 @@ n-bats
 n-bats
 80
 160
-80.0
+160.0
 1
 1
 NIL
@@ -1130,7 +1184,7 @@ no-patch
 no-patch
 1
 213
-46.0
+213.0
 1
 1
 NIL
@@ -1260,7 +1314,7 @@ SWITCH
 509
 track-bats?
 track-bats?
-1
+0
 1
 -1000
 
@@ -1368,10 +1422,10 @@ rw-mod-hunt
 Number
 
 SWITCH
-1082
-41
-1213
-74
+1173
+10
+1288
+43
 check-radius?
 check-radius?
 0
@@ -1381,7 +1435,7 @@ check-radius?
 SWITCH
 1082
 10
-1187
+1175
 43
 hunt-fly?
 hunt-fly?
@@ -1391,22 +1445,11 @@ hunt-fly?
 
 SWITCH
 1082
-73
-1226
-106
+42
+1288
+75
 bats-per-patch?
 bats-per-patch?
-0
-1
--1000
-
-SWITCH
-1082
-105
-1261
-138
-consp-find-food-auto?
-consp-find-food-auto?
 0
 1
 -1000
@@ -1436,6 +1479,17 @@ dev-steps
 "none" "calibration" "evaluation"
 0
 
+SWITCH
+1082
+75
+1288
+108
+local-enhancement?
+local-enhancement?
+0
+1
+-1000
+
 @#$#@#$#@
 ## ODD protocol for a bat sensory network formation model
 
@@ -1445,7 +1499,6 @@ See full ODD with figures, tables, & equations in the associated text.
 
 ## 1. Purpose and patterns
 Searching for food patches within a sensory network may allow for animals to more efficiently locate patchily distributed and ephemeral resources, however there exists little knowledge on the potential benefits of this strategy and the conditions under which it is advantageous. The purpose of the model is to assess if and under which conditions sensory networking of insectivorous bats can lead to observed differences in the amount of time it takes bats to find food in varying environments. 
-
 When developing the model we used patterns elucidated in the empirical portion of the manuscript (Fig. 4c & d), which document changes in distance to conspecifics associated with varying initial distances for model calibration (see ODD Element 7.8). Three additional movement patterns (time to first forage, distance from roost to forage cell, and straightness index) were used to evaluate the model (ODD Element 7.8).
 
 ## 2. Entities, state variables, and scales    
@@ -2214,6 +2267,134 @@ NetLogo 6.2.0
     </enumeratedValueSet>
     <enumeratedValueSet variable="dev-steps">
       <value value="&quot;calibration&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ScenarioOutputRevNULL" repetitions="500" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>time-to-95-food</metric>
+    <metric>food-found-ticks-list</metric>
+    <metric>network-sizes</metric>
+    <metric>nearest-neighbor-distance</metric>
+    <enumeratedValueSet variable="track-bats?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hunt-fly?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="check-radius?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="bats-per-patch?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="local-enhancement?">
+      <value value="true"/>
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="attraction-range">
+      <value value="240"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="alignment-range-hunt">
+      <value value="120"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="no-food-cells">
+      <value value="213"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="n-bats">
+      <value value="5"/>
+      <value value="10"/>
+      <value value="20"/>
+      <value value="40"/>
+      <value value="80"/>
+      <value value="160"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="no-patch">
+      <value value="1"/>
+      <value value="2"/>
+      <value value="4"/>
+      <value value="8"/>
+      <value value="16"/>
+      <value value="32"/>
+      <value value="64"/>
+      <value value="128"/>
+      <value value="213"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="foraging-radius">
+      <value value="35"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avoidance-range">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="null-model?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ScenarioOutputRevNetworks" repetitions="500" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>time-to-95-food</metric>
+    <metric>food-found-ticks-list</metric>
+    <metric>network-sizes</metric>
+    <metric>nearest-neighbor-distance</metric>
+    <enumeratedValueSet variable="track-bats?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hunt-fly?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="check-radius?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="bats-per-patch?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="local-enhancement?">
+      <value value="true"/>
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="attraction-range">
+      <value value="240"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="alignment-range-hunt">
+      <value value="120"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="no-food-cells">
+      <value value="213"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="n-bats">
+      <value value="5"/>
+      <value value="10"/>
+      <value value="20"/>
+      <value value="40"/>
+      <value value="80"/>
+      <value value="160"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="no-patch">
+      <value value="1"/>
+      <value value="2"/>
+      <value value="4"/>
+      <value value="8"/>
+      <value value="16"/>
+      <value value="32"/>
+      <value value="64"/>
+      <value value="128"/>
+      <value value="213"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="foraging-radius">
+      <value value="35"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avoidance-range">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="null-model?">
+      <value value="false"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
