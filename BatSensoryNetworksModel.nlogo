@@ -1,11 +1,12 @@
-; BatSensoryNetworksModel version 0.5
+; BatSensoryNetworksModel version 1.0
 
 ; Understanding the potential importance of bat sensory networks for locating food patches in
 ; varying environments. Refer to the scientific publications for detailed
 ; documentation:
 
 ; Roeleke, M., Schlägel, U. E., Gallagher, C. A., Pufelski, J., Blohm, T., Nathan, R., Toledo, S., Jeltsch, F., & C. C. Voigt.
-; Insectivorous bats form mobile sensory networks to optimize prey localization. (Submitted.)
+; Insectivorous bats form mobile sensory networks to optimize prey localization: the case of the common noctule bat.
+; in the Proceedings of the National Academy of Sciences of the United States of America.
 
 ; Model Developed by:
 ; Cara A. Gallagher
@@ -120,7 +121,7 @@ to setup
   set step-len-lambda-search 5.6
   set step-len-alpha-hunt 1.5
   set step-len-lambda-hunt 6.7
-  set prey-detection-range 15 / 75
+  set prey-detection-range (15 / 75) + 0.5
   set run-done false
   set most-done false
   set food-found-ticks-list []
@@ -923,22 +924,24 @@ to collect-outputs
   ]
 
   ; record network size of tracked bats
-  ask bats with [ food-found = false and leave-roost-tick < ticks and member? who track-list = true ]
-  [
-    let tmp []
-    if null-model? = false [
-      ; record network size of each bat
-      ifelse network-ID = 0
-      [ set tmp (list ticks who 1) ]
-      [ set tmp (list ticks who (count bats with [network-ID = [network-ID] of myself])) ]
-      set network-sizes lput tmp network-sizes
-    ]
+  if track-bats? = true [
+    ask bats with [ food-found = false and leave-roost-tick < ticks and member? who track-list = true ]
+    [
+      let tmp []
+      if null-model? = false [
+        ; record network size of each bat
+        ifelse network-ID = 0
+        [ set tmp (list ticks who 1) ]
+        [ set tmp (list ticks who (count bats with [network-ID = [network-ID] of myself])) ]
+        set network-sizes lput tmp network-sizes
+      ]
 
-    ; record nearest neighbor of tracked bats
-    let nghbr min-one-of other turtles [distance myself]
-    let dst precision ((distance nghbr) * 75) 3
-    set tmp (list ticks who dst)
-    set nearest-neighbor-distance lput tmp nearest-neighbor-distance
+      ; record nearest neighbor of tracked bats
+      let nghbr min-one-of other turtles [distance myself]
+      let dst precision ((distance nghbr) * 75) 3
+      set tmp (list ticks who dst)
+      set nearest-neighbor-distance lput tmp nearest-neighbor-distance
+    ]
   ]
 
 
@@ -1494,19 +1497,20 @@ local-enhancement?
 ## ODD protocol for a bat sensory network formation model
 
 This is an ODD protocol document (“Overview, Design concepts, and Details”), which provides a detailed description of our model presented in:
-Roeleke, M., Schlägel, U. E., Gallagher, C. A., Pufelski, J., Blohm, T., Nathan, R., Toledo, S., Jeltsch, F., & C. C. Voigt. Insectivorous bats form mobile sensory networks to optimize prey localization. (Submitted.) 
+Roeleke, M., Schlägel, U. E., Gallagher, C. A., Pufelski, J., Blohm, T., Nathan, R., Toledo, S., Jeltsch, F., & C. C. Voigt. Insectivorous bats form mobile sensory networks to optimize prey localization: the case of the common noctule bat. PNAS.  
 See full ODD with figures, tables, & equations in the associated text.
 
 ## 1. Purpose and patterns
 Searching for food patches within a sensory network may allow for animals to more efficiently locate patchily distributed and ephemeral resources, however there exists little knowledge on the potential benefits of this strategy and the conditions under which it is advantageous. The purpose of the model is to assess if and under which conditions sensory networking of insectivorous bats can lead to observed differences in the amount of time it takes bats to find food in varying environments. 
-When developing the model we used patterns elucidated in the empirical portion of the manuscript (Fig. 4c & d), which document changes in distance to conspecifics associated with varying initial distances for model calibration (see ODD Element 7.8). Three additional movement patterns (time to first forage, distance from roost to forage cell, and straightness index) were used to evaluate the model (ODD Element 7.8).
+
+When developing the model we used patterns elucidated in the empirical portion of the manuscript (Fig. 3c & d), which document changes in distance to conspecifics associated with varying initial distances for model calibration (see ODD Element 7.9). Three additional movement patterns (time to first forage, distance from roost to forage cell, and straightness index) were used to evaluate the model (ODD Element 7.9).
 
 ## 2. Entities, state variables, and scales    
-The model comprises two entities: landscape cells and individual bat agents. 
+The model comprises two entities: landscape cells and individual bat agents.
+ 
+Landscape cells are square grid cells characterized by their position and whether they contain prey resources (food). If they do contain food, then cells are additionally characterized by the ID of the patch, defined as clusters of cells with food, they belong to (patch-ID) and whether they have been found by bat (found) (Table S2.1). Here food represents aggregations of insects forming static swarms which may persist in a location for some time. These could represent mating aggregations, emergence events, or groups driven by climatic conditions. The use of static food patches for the short timescales covered in the model (minutes to few hours) was supported by observations in the tracking data where individuals exhibited area-restricted search behavior in one spot for several minutes. For simplicity, prey resources were expressed as a property of landscape cells (i.e., food present or not) rather than being explicitly described. 
 
-Landscape cells are square grid cells characterized by their position and whether they contain prey resources (food). If they do contain food, then cells are additionally characterized by the ID of the patch, defined as clusters of cells with food, they belong to (patch-ID) and whether they have been found by bat (found) (Table S2.1). Here food represents aggregations of insects forming static swarms which may persist in a location for some time. These could represent mating aggregations, emergence events, or groups driven by climatic conditions. The use of static food patches for the short timescales covered in the model (minutes to few hours) was supported by observations in the tracking data where individuals exhibited area-restricted search behavior in one spot for several minutes (data not shown). For simplicity, prey resources were expressed as a property of landscape cells (i.e., food present or not) rather than being explicitly described. 
-
-Each grid cell covers 75x75 m. This cell size was selected as bats in the empirical tracking dataset tended to keep approximately this distance from each other when hunting (data not shown). The total spatial extent of the landscape is 80x80 square grid cells, covering an area of 6000x6000 m. This landscape size was selected to match the extent of the empirically studied foraging area. The model landscape has closed boundaries, i.e. was bounded at the extents and not toroidal. The food cell distribution is controlled by the parameter no-patch, which sets the total number of patches, or spatial aggregation level, of the landscape. This value can range between 1 and the number of food cells used (no-food-cells), leading to spatial aggregation levels of 100 - 0%, respectively. 
+Each grid cell covers 75x75 m. This cell size was selected as bats in the empirical tracking dataset tended to keep approximately this distance from each other when hunting. The total spatial extent of the landscape is 80x80 square grid cells, covering an area of 6000x6000 m. This landscape size was selected to match the extent of the empirically studied foraging area. The model landscape has closed boundaries, i.e. was bounded at the extents and not toroidal. The food cell distribution is controlled by the parameter no-patch, which sets the total number of patches, or spatial aggregation level, of the landscape. This value can range between 1 and the number of food cells used (no-food-cells), leading to spatial aggregation levels of 100 - 0%, respectively. 
 
 Bat agents are characterized by 17 variables related to their movement behavior and interactions with other bats (Table S2.1). Bats move through the environment using four vector-based movement behaviors: a random walk process, and three processes which are influenced by interactions with other bats (attraction, alignment, and avoidance). Each vector contains a direction and strength component. Directions point to a local x and y position (attract-vect, align-vect, avoid-vect, and rw-vect), while strengths, or weights, range between zero to one (attract-strength, align-strength, avoid-strength, and rw-strength), where one is the strongest possible value (see ODD Element 7 for details). When bats have a conspecific (conspecific), their resulting movement direction (turn-angle-real) is determined from the interacting movement processes (Fig. S2.1). Bats without conspecifics only use the random walk behavior. Their movement speed (step-length) is pulled from a distribution consistent with steps taken by bats in the empirical tracking data.
 
@@ -1517,12 +1521,12 @@ Time is modelled using discrete time steps, where each step represents 8 seconds
 ## 3. Process overview and scheduling
 Processes: To simulate the movements of interacting bats, the model proceeds using seven key processes: one related to selecting neighboring bats as conspecifics (set-conspecific), five related to calculating movement behavior (attraction, alignment, avoidance, random-walk, hunting-fly, and bats-move), and one process for identifying if a food cell has been found (food-check). The submodels for each process are described in detail in ODD Element 7. 
 
-Bats proceed through these processes once per time step, but only run attraction, alignment, and avoidance procedures if they have not found food and have identified a conspecific in the set-conspecific step. Bats who have found food run the hunting-fly procedure once per time step.
- 
+Bats proceed through these processes once per time step, but only run attraction, alignment, and avoidance procedures if they have not found food and have identified a conspecific in the set-conspecific step. Bats who have found food run the hunting-fly procedure once per time step. 
+
 Schedule: Bats in the model update their movements once per time step. Procedures all occur in the same predetermined order (Figure S3.1). All bats which have not yet found food first check for neighboring bats using the set-conspecific procedure. Then bats pull their step length from a random gamma distribution based on their foraging status (details in ODD Element 4.9). All bats which have a conspecific are first asked in a random order to calculate their attraction, alignment, avoidance, and random-walk vectors, then, in a separate step, all bats (again in a random order) are asked to move. These steps are executed separately so that bats are all on the same schedule, i.e., all calculate their movement direction, then all move (i.e., synchronous updating of their positions). Bats which have not found food and have no conspecific skip the attraction, alignment, and avoidance procedures and only run random-walk to determine their movement direction. 
 
-Once bats have calculated their movement vectors, they then determine their resulting direction in the bats-move procedure (based on the direction and strengths of each movement vector) and move. Moving and searching for food are broken up into three steps to avoid bats passing through but missing a food cell. 
-
+Once bats have calculated their movement vectors, they then determine their resulting direction in the bats-move procedure (based on the direction and strengths of each movement vector) and move. Moving and searching for food are broken up into three steps to avoid bats passing through but missing a food cell.
+ 
 Bats which have found food do not check for conspecifics nor do they calculate any of the movement processes. They instead only fly around the cell they have found food in using the hunting-fly procedure. 
 
 The model proceeds until all bats have found food. 
@@ -1539,7 +1543,7 @@ At the agent level, the model is rooted in Boids movement dynamics (Reynolds, 19
 The movement behavior and networking of bats emerge from bat movement decisions. The time it takes to find a food cell emerges from the landscape structure (number and placement of patches) and interactions between bats. 
 
 4.3. Adaptation
-Bats adapt their behavior through adjustments to their movement direction: bats base their direction on the distance to their conspecific (if any) and the resulting weighted headings given by each of the four movement processes. The resulting behavior is determined primarily by the movement process which is the strongest at the current distance to the conspecific. The strength of each movement process at varying distances to the conspecific was calibrated using the empirical patterns (see ODD Element 7.8 for details). 
+Bats adapt their behavior through adjustments to their movement direction: bats base their direction on the distance to their conspecific (if any) and the resulting weighted headings given by each of the four movement processes. The resulting behavior is determined primarily by the movement process which is the strongest at the current distance to the conspecific. The strength of each movement process at varying distances to the conspecific was calibrated using the empirical patterns (see ODD Element 7.9 for details). 
 
 4.4. Sensing
 Bats can sense their location and the location, movement direction, and foraging behavior of other bat agents in their vicinity (240m). They can also sense whether food is present in cells within a 15m radius of their position (prey-detection-range).
@@ -1563,9 +1567,11 @@ Food patches are placed randomly within the foraging zone (in radius foraging-ra
 Graphical output on the model interface shows the number of bats which have found food, the percentage of searching bats with a conspecific, the average network size, and the time it took each bat to find a food cell. 
 
 A subset of bats can be tracked for calibrating and evaluating movement processes. For these tracked bats, the distance to their conspecific in the previous and current recorded time step (32 sec time intervals were used for calibration), difference in distances between the two recordings, and x and y positions are all observed. 
+
 Network sizes were collected by assessing the number of bats which occur in a single network in a time step. Though bats can only have one conspecific at a time, larger networks can emerge from bats which have a different conspecific than the bat which sees them as its conspecific (e.g., bat 1 can see bat 2 as its conspecific, while bat 2 sees bat 3 as its conspecific, resulting in a network size of 3).  
 
 For scenarios, the time it took all bats to find food, for 95% of bats to find food, and for each bat to find food (adjusted for the time step at which it left the roost) were recorded. 
+
 
 ## 5. Initialization
 Upon initialization, a number of simulated bats are created based on the value of the input parameter n-bats. All bats are identical and are generated with all state variables initialized at 0, “false“, or “nobody”, where relevant. The one exception is the leave-roost-tick parameter which is selected randomly with a maximum number corresponding to 37 time steps ( ~5 minutes). 
@@ -1582,7 +1588,7 @@ The model does not use input data to represent time-varying processes.
 ## 7. Submodels
 
 7.1. Check for conspecific (set-conspecific)
-At the beginning of each time step searching bats select their conspecifics (if any) (Fig. S7.1). Bats first check if there are any other bats within the maximum range (240m). If so, all bats within this region are saved to a temporary list called conspecifics. If there are no bats within this region, then the bat sets its conspecific to “nobody” and proceeds to the random-walk submodel (Fig S7.1 left). Bats which have been networking with hunting conspecifics for too long will ignore conspecifics that are currently hunting when selecting their conspecific (see submodel check-consp-hunting below for details). To do this, bats which have identified any possible conspecifics in their area first check if they are currently moving away from hunting bats (i.e., move-away-ticker > 0). If so, then the bat looks for the closest searching bat in the conspecifics list and sets it as its conspecific (Fig S7.1 center). If there are no searching bats in the list, then the conspecific is set to “nobody”. If the conspecifics list is not empty and the bat has a move-away-ticker value of 0 (i.e., not moving away from hunting bats), then it chooses the closest bat in its radius as its conspecific (regardless of foraging behavior of the other bat)(Fig S7.1 right).  
+At the beginning of each time step searching bats select their conspecifics (if any) (Fig. S7.1). Bats first check if there are any other bats within the maximum range (240m). If so, all bats within this region are saved to a temporary list called conspecifics. If there are no bats within this region, then the bat sets its conspecific to “nobody” and proceeds to the random-walk submodel (Fig S7.1 left). If the local-enhancement? boolean is “true” and the bat identifies a conspecific which is currently hunting in a food patch with available food cells, the focal bat then runs the local-enhancement procedure (below). Bats which have been networking with hunting conspecifics for too long will ignore conspecifics that are currently hunting when selecting their conspecific (see submodel check-consp-hunting below for details). To do this, bats which have identified any possible conspecifics in their area first check if they are currently moving away from hunting bats (i.e., move-away-ticker > 0). If so, then the bat looks for the closest searching bat in the conspecifics list and sets it as its conspecific (Fig S7.1 center). If there are no searching bats in the list, then the conspecific is set to “nobody”. If the conspecifics list is not empty and the bat has a move-away-ticker value of 0 (i.e., not moving away from hunting bats), then it chooses the closest bat in its radius as its conspecific (regardless of foraging behavior of the other bat)(Fig S7.1 right). 
 
 7.2. Check if current conspecific is hunting (check-consp-hunting)
 In the check-consp-hunting procedure bats keep track of how long they have had a conspecific which has been hunting. This procedure is run as a safety net for bats to disengage from hunting bats to avoid getting stuck in networks with bats which may be fixed in a location that does not contain any empty food cells. Flying around a hunting bat can help bats find empty food cells nearby when present, particularly when the patch size is large, but can also be a distraction to searching bats when no available food cells are nearby. In the model, bats will stay with a hunting conspecific for 40 time steps (~ 5 minutes), using a parameter called hunting-consp-ticker to keep track. After this timer reaches 40 time steps, bats then ignore hunting bats when selecting their conspecifics again for 40 time steps, keeping track using the parameter move-away-ticker. Move-away-ticker is used in the set-conspecific submodel (above) when selecting a conspecific from neighboring bats. 
@@ -1596,39 +1602,42 @@ The following four submodels all relate to the movement behavior of modelled bat
 7.4.1. Attraction
 Bats which are attracted to other bats orient their heading in the direction of their conspecific. They do this by first pulling the x and y positions of their conspecific as temporary variables. The focal bat then draws the attraction vector in local space spanning from its position to the position of the conspecific (Fig. S7.2). 
 After the vector is established, the vector strength is initially calculated based on the distance to the conspecific (with the highest value of one found at the attraction-range distance and the minimum value of zero at avoidance-range). This is calculated as:
-attract–strength = dist–consp - avoidance–rangeattraction–range - avoidance–range
+(see ODD)
+
 This initial vector strength value is then converted to an exponential scale using the calibrated modifier values, with the value used based on the current foraging activity of the conspecific, i.e., if the conspecific is not hunting then attract-mod-search is used, if it is hunting then attract-mod-hunt is used.
 
 7.4.2. Alignment
 Bats attempt to align their movement direction with that of their conspecific while trying to maintain distance with their conspecific when drawing their alignment vector. The process of calculating the alignment vector is outlined in Figure S7.4. Aligning bats first pull the heading (heading-consp) and speed (speed-consp) of their conspecific. This is used to then predict the position where the conspecific will be after it has moved (Fig. S7.3a). As bats do not adjust their headings for the current time step until the bats-move submodel, which is executed later as a separate step, this location does not necessarily represent exactly where the conspecific will be after moving, but instead depicts the point where they would be if they maintained their movement direction from the previous time step. 
 
-Bats assess the current distance to their conspecific (curr-dist) and the distance between their current position and the predicted future position of the conspecific (fut-dist). The alignment vector can only point to one of two points, the two intersection points of a circle centered on the future position of the conspecific with a radius of curr-dist (Fig. S7.3c) and a circle centered on the focal bat with a radius of its step length (Fig. S7.3d). To locate these points, two triangles are drawn between the position of the focal bat, the future location of the conspecific, and the intersection points (Fig. S7.3e). Two lines are needed to assess the location of the intersection points, denoted as a and h in Fig. S7.3e. To estimate a (or fut-dist-a) the equation is used: 
+Bats assess the current distance to their conspecific (curr-dist) and the distance between their current position and the predicted future position of the conspecific (fut-dist). The alignment vector can only point to one of two points, the two intersection points of a circle centered on the future position of the conspecific with a radius of curr-dist (Fig. S7.3c) and a circle centered on the focal bat with a radius of its step length (Fig. S7.3d). To locate these points, two triangles are drawn between the position of the focal bat, the future location of the conspecific, and the intersection points (Fig. S7.3e). Two lines are needed to assess the location of the intersection points, denoted as a and h in Fig. S7.3e. To estimate a (or fut-dist-a) the equation is used: (see ODD)
 
-Using this value h (or height) is calculated as:
+Using this value h (or height) is calculated as: (see ODD)
 
-The intersection point between these two lines (x-mid, y-mid) is then found using the current x and y position of the focal bat (xcor and ycor) as: 
+The intersection point between these two lines (x-mid, y-mid) is then found using the current x and y position of the focal bat (xcor and ycor) as: (see ODD)
 
-Two new x and y positions are then identified as:
+Two new x and y positions are then identified as: (see ODD)
 
 Finally, the heading towards each of the two points from the focal animal’s current position is calculated and the difference between these two headings is obtained. For animals which have a searching conspecific, the point is taken which results in a heading which has a smaller deviation from the conspecific’s current heading (heading-consp). If the conspecific is hunting, a check first occurs to see if the difference in the current headings between the two bats is greater than 90 degrees (meaning that they are currently heading in nearly opposing directions). If so, bats then take the point which is closer to the inverse of heading-consp. This allows bats to continue their path around a hunting bat, rather than mimicking the erratic turning angles that hunting bats exhibit. The selected new position is then used to draw the alignment vector (Fig. S7.3f).
 
-Some conditions may exist where this math is not possible. One being that the circles are separate. This can occur when the step-length of the focal animal is too small to create a circle which intersects the circle around the future position of the conspecific. When this occurs, bats instead draw a vector straight towards the future position of the conspecific with a length of their step-length. This will not maintain distance but can minimize increases in distance. Additionally, circles can be concentric causing no possible solutions, or be coincident with an infinite number of solutions. In both of these cases the alignment vector is set to (0,0) and alignment does not occur.  
+Some conditions may exist where this math is not possible. One being that the circles are separate. This can occur when the step-length of the focal animal is too small to create a circle which intersects the circle around the future position of the conspecific. When this occurs, bats instead draw a vector straight towards the future position of the conspecific with a length of their step-length. This will not maintain distance but can minimize increases in distance. Additionally, circles can be concentric causing no possible solutions, or be coincident with an infinite number of solutions. In both of these cases the alignment vector is set to (0,0) and alignment does not occur.   
 
-After the alignment vector is established, the vector strength is calculated based on the distance to the conspecific. Alignment differs from the other two processes in that it is strongest (a value of one) at the alignment-range and then decreases to zero in both directions, so that it has a value of zero at both the attraction- and avoidance-ranges (Fig. S7.4). The initial align-strength value is calculated as:
+After the alignment vector is established, the vector strength is calculated based on the distance to the conspecific. Alignment differs from the other two processes in that it is strongest (a value of one) at the alignment-range and then decreases to zero in both directions, so that it has a value of zero at both the attraction- and avoidance-ranges (Fig. S7.4). The initial align-strength value is calculated as: (see ODD)
 
-This weight is then converted to an exponential scale as in the Attraction submodel using the calibrated modifier values, align-mod-search for bats with searching conspecifics and align-mod-hunt for bats with hunting conspecifics, as:
+This weight is then converted to an exponential scale as in the Attraction submodel using the calibrated modifier values, align-mod-search for bats with searching conspecifics and align-mod-hunt for bats with hunting conspecifics, as: (see ODD)
 
 7.4.3. Avoidance
 Avoidance is used by bats to avoid collisions and potential echolocation jamming (Amichai et al., 2015) from neighboring bats. The avoidance vector is essentially calculated as the inverse of attraction. Bats first pull the x and y positions of their conspecific to get a vector heading towards the bat. Then this vector is flipped to head directly away from the conspecific (Fig. S7.5). 
 
 The initial strength of the avoidance vector is then calculated using the distance from the conspecific where the highest value (1) occurs at the avoidance-range and then decreases to zero at the alignment-range. Avoidance is set to zero at ranges greater than the alignment-range. This strength is again modified exponentially, as for the attraction and alignment vectors, using the calibrated parameters avoid-mod-search (when conspecific is searching) and avoid-mod-hunt (when the conspecific is hunting), using the equation: 
+(see ODD)
 
 An exponential scale was used for the vector strengths to calibrate the movement processes to the data in a way in which the overall magnitudes of each process was the same, but the distances at which the maximum value of one occurred changed between processes (Fig. S7.6). This approach modified only the shape of the curve rather than the range of magnitudes of the vector strengths. 
+
 
 7.4.4. Random walk (random-walk)
 The random walk submodel is the only movement process calculated for all searching bats in every time step. This process entirely controls the movement direction of bats when they have no conspecific or when running the null model. Both correlated and biased random walk behavior is used in the process. Bats select either the center of the foraging area or their previous heading to target when estimating their movement direction, based on their current distance to the center of the foraging area. When well within the foraging area (< foraging-radius - 20 cells) bats use their previous heading to target their random walk behavior, while when completely outside of the foraging area (> foraging-radius + five cells),  bats target a point that is 10% determined by targeting the center of the foraging area and 90% by their previous heading. For bats at a distance in the middle of these two ranges, the targeting is blended between the two directions (Fig. S7.7). The ranges for targeting behavior were selected as they allowed animals to thoroughly cover the foraging area when moving in the landscape without often running into the landscape walls. After the random walk target is determined, a random turning angle is then added to add stochasticity to the movement direction (see ODD Element 4.9). 
 
-Bats calculating their random walk vector begin by first selecting their two targets (heading-rw-head for previous heading and heading-rw-forg for the center of the foraging area). Then the relative weight of the two targets is calculated linearly between the inner and outer range values based on the bats current distance to the center of the foraging area. The heading is then determined using the direction to the two targets and the calculated relative weight. The random contribution to the turning angle is then pulled from a gamma distribution fit to the turning angles of searching bats in the empirical dataset. To avoid the additional contribution from interactions between bats causing the realized turning angle of bats to deviate from observed turning angles, the contribution of additional stochasticity in turning angles is reduced by 55% for bats which currently have a conspecific. This value was selected as it resulted in total turning angles (determined as the change in heading between consecutive time steps) which resembled those of the empirical bats (Fig. S7.8). Bats then add the random component to the heading based on targeting and draw their random walk vector using this combined heading and their step length value. The strength of this vector is then set as a flat value using the calibrated parameters rw-mod-search (when conspecific is searching) and rw-mod-hunt (when the conspecific is hunting). 
+Bats calculating their random walk vector begin by first selecting their two targets (heading-rw-head for previous heading and heading-rw-forg for the center of the foraging area). Then the relative weight of the two targets is calculated linearly between the inner and outer range values based on the bats current distance to the center of the foraging area. The heading is then determined using the direction to the two targets and the calculated relative weight. The random contribution to the turning angle is then pulled from a gamma distribution fit to the turning angles of searching bats in the empirical dataset. To avoid the additional contribution from interactions between bats causing the realized turning angle of bats to deviate from observed turning angles, the contribution of additional stochasticity in turning angles is reduced by 55% for bats which currently have a conspecific. This value was selected as it resulted in total turning angles (determined as the change in heading between consecutive time steps) which resembled those of the empirical bats (Fig. S7.8). Bats then add the random component to the heading based on targeting and draw their random walk vector using this combined heading and their step length value. The strength of this vector is then set as a flat value using the calibrated parameters rw-mod-search (when conspecific is searching) and rw-mod-hunt (when the conspecific is hunting).  
 
 7.5. Update heading and fly (bats-move)
 In this submodel, bats calculate their resulting movement direction based on the four movement vectors and their strengths, and then move. To do this, bats calculate the changing x and y components of their resulting movement direction separately. To calculate the x component, bats multiply the x value from each of the vectors by its corresponding vector strength and then add together each of the four resulting values. The same is done for the y values and then the heading is updated using the resulting vector. The calculated heading is compared to the previous heading to determine the turning angle bats take in a time step (turn-angle-real).
@@ -1638,7 +1647,7 @@ Bats which have triggered the flying-towards-food behavior (meaning that they ha
 All bats which have not found food then fly in the direction of their updated heading at their flying speed (i.e., step-length) and check for food (food-check submodel). This step is broken into three parts to reduce the chance that a bat would fly directly through and miss a food cell, so bats take a step equal to their step-length divided by three and check for food, then repeat this process two more times. 
 
 7.6. Hunting bat flight (hunting-fly)
-Bats which have located a food cell fly around the cell to simulate hunting behavior. This is executed using the same mechanics as the random-walk submodel, only the center of the food cell is used rather than the center of the foraging area as a target and the ranges are changed. In this submodel, the target is entirely set to the center of the food cell when the bat is at a distance greater than 0.5 cells away from the center of the food cell, while when less than 0.1 cells away from the center bats use only their previous heading as their target. The gamma distributions used to pull the turning angle and step length values used here were fit to data from hunting bats in the empirical dataset. 
+Bats which have located a food cell fly around the cell to simulate hunting behavior. This is executed using the same mechanics as the random-walk submodel, only the center of the food cell is used rather than the center of the foraging area as a target and the ranges are changed. In this submodel, the target is entirely set to the center of the food cell when the bat is at a distance greater than 0.5 cells away from the center of the food cell, while when less than 0.1 cells away from the center bats use only their previous heading as their target. The gamma distributions used to pull the turning angle and step length values used here were fit to data from hunting bats in the empirical dataset.  
 
 7.7. Check if food has been found (food-check)
 In this submodel bats check their surroundings to locate a food cell. This process starts by first creating a temporary variable called food-found-this-tick and setting it to “false“. This variable will be used later to update the state variables of bats which have found food. Bats then check if the cell that they are currently in has food which has not been found by another bat (i.e., found = “false“). If so, then bats move to the center of that patch and flip the food-found-this-tick boolean to “true“. 
@@ -1649,50 +1658,74 @@ If the cell instead does not contain food, bats check for food in a 15m radius a
 
 When bats have found food they update a suite of variables: food-found is set to “true”, conspecific is set to “nobody”, they record the location of the food cell they now occupy (food-cell), set their color to white, ask the cell to set its found value to “true”, set flying-towards-food to “false”, and add the number of time steps that it took them to find food (adjusted for the time they left the roost) to the outputs list food-found-ticks-list.  
 
-If a bat finds food, it alerts any bats which see it as their conspecific at that time step. If there are unoccupied food cells in the patch it found, then the other bat will target an unoccupied food cell in the patch and set their flying-towards-food boolean to “true”.
+When local-enhancement? is “true”, bats which found food alert any bats which see them as their conspecific at that time step using the local-enhancement procedure.
 
 For bats which reach their targ-cell but find it occupied, they reset their flying-towards-food boolean to “false”.
 
-7.8. Calibration and evaluation
+7.8. Use local enhancement (local-enhancement)
+While the local-enhancement? boolean is set to “true”, if a hunting conspecific was selected by a bat in the set-conspecific procedure or if a bat found food using the food-check procedure (food-found-this-tick is “true”), then bats use local enhancement. 
+
+For bats which have encountered a hunting conspecific but have not yet found food themselves, they first check to see if there are any available food cells within the same food patch that their conspecific is hunting in. If there are available food cells, then the bat selects one of the empty cells as its target (targ-cell) and sets its flying-towards-food boolean to “true”. Then bats move towards the target cell in the bats-move procedure. 
+
+Bats that have just found food instead direct any bats that currently have them set as their conspecific toward any available food cells in their patch by asking them to target one of those cells (targ-cell) and set their flying-towards-food boolean to “true”.
+
+7.9. Calibration and evaluation
 Calibration: To ensure that the behavior of and interactions between modelled bats reflected the movement patterns found for the real bats in the study, we calibrated parameters controlling the vector strength for each of the four movement processes and the alignment range distance using an inverse modelling approach (Kramer-Schadt et al., 2007; Railsback & Grimm, 2019). The calibration was broken up into two steps with the movements of bats with and without hunting conspecifics being calibrated separately. Two related patterns were used for each step: 1) the relationship between initial distance and changes in distance between focal bats and their nearest conspecific (main text Fig. 4c & d), and 2) the overall shape of the density curve fit to the distance changes. A total of 10 parameters were calibrated, with the calibrated parameters for bats with searching conspecifics being: attract-mod-search, align-mod-search, avoid-mod-search, rw-mod-search, and alignment-range-search; and for bats with hunting conspecifics were: attract-mod-hunt, align-mod-hunt, avoid-mod-hunt, rw-mod-hunt, and alignment-range-hunt.
+
 To calibrate these parameters, for each state (conspecific searching vs. hunting) 25 simulations were run using each possible parameter combination. The calibration for bats with searching conspecifics was run first and then the second calibration was run for bats with hunting conspecifics. In each simulation, the number of landscape patches (no-patches) was randomly selected, ranging from spatial aggregation levels of 0 - 100%. This was done as the total spatial aggregation of food resources in the real environment was unknown. For both calibrations 80 bats were generated and a number of these bats were tracked depending on the state, with 20 bats tracked for the first calibration and 80 tracked for the second. The number differed as a great deal more points were collected in the first calibration, due to the greater amount of time spent by bats networking with searching bats. 
 
 Tracked bats executed the movement-outputs procedure to record their movement behavior once per every four time steps (32 seconds). These outputs were only collected when bats met certain criteria: they must not have found food yet (food-found = “false”), they must not currently be flying towards an unoccupied food cell (flying-towards-food = “false”), and they must have already left the roost (leave-roost-tick < time step). If these conditions are met, bats then calculate their change in distance (diff-dist) as the difference between their current distance to the conspecific they had in the previous recording (called prev-consp) and the distance they were to that conspecific in the previous recording (prev-dist-c). This method was taken to collect outputs in the same manner as they were calculated for bats in the empirical dataset. Bats then record prev-dist-c and diff-dist in an output list. After recording, bats check if they have a conspecific and, if so, save the identity (prev-consp), foraging behavior (prev-consp-hunt), and distance to the conspecific (prev-dist-c) at the end of the procedure. 
 
-Each calibrated parameter was varied over four levels and all combinations of these four levels were tested. Ranges were identified through exploratory runs which narrowed the values tested (see Table S7.8.1). The calibration was run using the BehaviorSpace feature in NetLogo v6.2.0 (Shargel & Wilensky, 2002). 
+Each calibrated parameter was varied over four levels and all combinations of these four levels were tested. Ranges were identified through exploratory runs which narrowed the values tested (see Table S7.9.1). The calibration was run using the BehaviorSpace feature in NetLogo v6.2.0 (Shargel & Wilensky, 2002). 
 
 The outputs were processed in R statistical software v4.0.3 (R Core Team, 2021) and pooled based on their parameter combination. The first pattern was assessed in the same manner as the empirical patterns by fitting a 3rd order polynomial model to 5000 points from each parameter combination using the lmer function in the “lme4” package (Bates et al., 2021, p. 4). Using the ggeffect function in the “ggeffects” package (Lüdecke et al., 2021), the resulting statistical model predictions were converted into a table with a row for each initial distance value between 0 and 240m at 10m increments. The deviation between the empirical and simulated statistical models was then estimated at each initial distance value and the root mean squared error (RMSE) was calculated for each parameter combination. 
 
-For the second pattern, density values were calculated using the built-in density function in R at 100 equally spaced points between 0 and 350m for both the empirical and simulated differences in distances recorded. Again 5000 points were used per parameter combination. At each point, the deviation between the empirical and simulated density curves was determined and the overall error was again calculated as RMSE. 
+For the second pattern, density values were calculated using the built-in density function in R at 100 equally spaced points between 0 and 350m for both the empirical and simulated differences in distances recorded. Again 5000 points were used per parameter combination. At each point, the deviation between the empirical and simulated density curves was determined and the overall error was again calculated as RMSE.
+ 
 The relative fit of the results from each parameter combination to each pattern was calculated as a ranking which increased with increasing RMSE, e.g., the parameter combination resulting in the tightest fit (i.e., lowest RMSE) held a rank of 1. These two ranks were added together and the parameter combination which yielded the lowest overall rank was selected. Calibration resulted in successful fits of the movement processes to the empirical patterns, with average model predictions for the first pattern falling within the 95% confidence intervals for both states at all distances. The selected parameter values can be found in Table S7.1 and resulting fits in Figure S7.9 below. 
 
 The null model was additionally run (null-model? set to “true”) using the same simulation specifications to assess the pattern outputs for bats which are not networking (Fig. S7.10). 
 
 Evaluation: To evaluate the calibrated model’s ability to emulate bat movement features, we compared model outputs to three population-level bat movement patterns. The three patterns we used were distributions of the: 1) euclidean distance between the bat starting point and its final point at a food cell (beeline), 2) beeline divided by the sum of euclidean distances between each 8 sec time step (straightness index), and 3) time difference between the bat leaving the roost and finding a food cell (time to first forage). It is important to note that these comparisons are independent, or secondary predictions, and did not include any additional parameterization or re-calibration. 
+
 To compare these patterns, the x and y positions of simulated bats were collected once per time step for bats in landscapes with varying spatial aggregation levels (1, 2, 4, 8, 16, 32, 64, 128, or 213 patches). While 80 bats were simulated in the landscape (approximately the empirical colony size), only four bats were tracked in each simulation. Twenty-five simulations were run per spatial aggregation level, totalling in 100 tracked bats per level. 
 
 The model outputs and empirical data were then analyzed following the same methodology using the “sp” package (Pebesma et al., 2021) in R statistical software v4.0.2 (R Core Team, 2021). The patterns were then visually compared to evaluate fit at each spatial aggregation level tested (Fig. S7.11).
 
 The fit of the evaluation outputs varied depending on the tested spatial aggregation level. For the beeline pattern, most median values for the model outputs fell within the interquartile range of the empirical data. The only exception occurred when only a single food patch was generated, where the beeline value was recorded as being higher than the empirical pattern. The empirical observations showed a much wider spread of values, reaching distances substantially higher than recorded in the model (7584m), potentially due to natural variations in the location of food patches in the real landscape. 
+
 Straightness index produced a U-shaped trend, with higher straightness values found at intermediate patch numbers and lower values exhibited at both low and high patch numbers. For this pattern, landscapes with between 2 and 64 patches resulted in median values which fell within the interquartile range of the empirical pattern. Though when assessing the overall shape of the distribution, landscapes with between 8 and 32 patches were observed to more similarly fit the shape of the empirical data, with a higher density of points occurring towards a straightness index value of 1.0. 
 
 The model also resulted in a U-shaped trend for the time to first forage pattern, with both a higher median value and higher variability in output values found for low and high numbers of patches when compared to outputs for intermediate patch levels. The empirical observations predominantly occurred at very short time values, with the mean falling at only 8.8 minutes. The median values for landscapes containing between 4 and 128 patches all fell within the interquartile range of the empirical observations, with 32 patches most similarly fitting the overall distribution of the empirical pattern. 
 
 Overall the model was capable of producing outputs similar to real bat observations from the tracking study, with the best fit occurring at intermediate spatial aggregation levels for all three tested patterns.
 
+
 ## References
 Amichai, E., Blumrosen, G., & Yovel, Y. (2015). Calling louder and longer: How bats use biosonar under severe acoustic interference from other bats. Proceedings of the Royal Society B: Biological Sciences, 282(1821), 20152064. https://doi.org/10.1098/rspb.2015.2064
+
 Bates, D., Maechler, M., Bolker, B., Walker, S., Christensen, R. H. B., Singmann, H., Dai, B., Scheipl, F., Grothendieck, G., Green, P., Fox, J., Bauer, A., & Krivitsky, P. N. (2021). lme4: Linear Mixed-Effects Models using “Eigen” and S4 (1.1-27.1) [Computer software]. https://CRAN.R-project.org/package=lme4
+
 Boonman, A., Fenton, B., & Yovel, Y. (2019). The benefits of insect-swarm hunting to echolocating bats, and its influence on the evolution of bat echolocation signals. PLOS Computational Biology, 15(12), e1006873. https://doi.org/10.1371/journal.pcbi.1006873
+
 Cvikel, N., Egert Berg, K., Levin, E., Hurme, E., Borissov, I., Boonman, A., Amichai, E., & Yovel, Y. (2015). Bats Aggregate to Improve Prey Search but Might Be Impaired when Their Density Becomes Too High. Current Biology, 25(2), 206–211. https://doi.org/10.1016/j.cub.2014.11.010
+
 Gager, Y. (2019). Information transfer about food as a reason for sociality in bats. Mammal Review, 49(2), 113–120. https://doi.org/10.1111/mam.12146
+
 Kalko, E. K. V. (1995). Insect pursuit, prey capture and echolocation in pipestirelle bats (Microchiroptera). Animal Behaviour, 50(4), 861–880. https://doi.org/10.1016/0003-3472(95)80090-5
+
 Kramer-Schadt, S., Revilla, E., Wiegand, T., & Grimm, V. (2007). Patterns for parameters in simulation models. Ecological Modelling, 204(3), 553–556. https://doi.org/10.1016/j.ecolmodel.2007.01.018
+
 Lüdecke, D., Aust, F., Crawley, S., & Ben-Shachar, M. S. (2021). ggeffects: Create Tidy Data Frames of Marginal Effects for “ggplot” from Model Outputs (1.1.1) [Computer software]. https://CRAN.R-project.org/package=ggeffects
+
 Pebesma, E., Bivand, R., Rowlingson, B., Gomez-Rubio, V., Hijmans, R., Sumner, M., MacQueen, D., Lemon, J., Lindgren, F., O’Brien, J., & O’Rourke, J. (2021). sp: Classes and Methods for Spatial Data (1.4-5) [Computer software]. https://CRAN.R-project.org/package=sp
+
 R Core Team. (2021). R: A language and environment for statistical computing. R Foundation for Statistical Computing. https://www.R-project.org/
+
 Railsback, S. F., & Grimm, V. (2019). Agent-based and individual-based modeling: A practical introduction. Princeton university press.
+
 Reynolds, C. W. (1987). Flocks, herds and schools: A distributed behavioral model. ACM SIGGRAPH Computer Graphics, 21(4), 25–34. https://doi.org/10.1145/37402.37406
+
 Shargel, B., & Wilensky, U. (2002). BehaviorSpace. Northwestern University.
 Voigt, C. C., Russo, D., Runkel, V., & Goerlitz, H. R. (2021). Limitations of acoustic monitoring at wind turbines to evaluate fatality risk of bats. Mammal Review. https://doi.org/10.1111/mam.12248
 @#$#@#$#@
