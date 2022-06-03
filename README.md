@@ -5,7 +5,7 @@ Roeleke, M., Schlägel, U. E., Gallagher, C. A., Pufelski, J., Blohm, T., Nathan
 
 Searching for food patches within a sensory network may allow for animals to more efficiently locate patchily distributed and ephemeral resources, however there exists little knowledge on the potential benefits of this strategy and the conditions under which it is advantageous. The purpose of the model is to assess if and under which conditions sensory networking of insectivorous bats can lead to observed differences in the amount of time it takes bats to find food in varying environments.  
 
-Model Developed by:  
+Model developed by:  
 Cara A. Gallagher  
 Postdoctoral researcher  
 University of Potsdam  
